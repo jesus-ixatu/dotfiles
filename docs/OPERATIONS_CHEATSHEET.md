@@ -77,6 +77,7 @@ chezmoi --source="$HOME/dotfiles" diff
 - Revisa **`~/.config/chezmoi/chezmoi.toml`**: `obsidian_vault_path`, `[data.codex]`, rutas corporativas.
 - **No versiones** paths de oficina en el repo; overrides solo en config local Chezmoi.
 - Mismo criterio: sin `chezmoi apply` global salvo decisión explícita.
+- Receta completa WSL2 / IXATU oficina: [OFFICE_SETUP_CHEATSHEET.md](OFFICE_SETUP_CHEATSHEET.md).
 
 ---
 

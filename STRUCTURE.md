@@ -251,6 +251,7 @@
 │   ├── 📝 MCP_TAXONOMY.md
 │   ├── 📝 MIGRATION_MCP_CHEZMOI.md
 │   ├── 📝 MIGRATION_MCP_ITER3.md
+│   ├── 📝 OFFICE_SETUP_CHEATSHEET.md
 │   ├── 📝 OPENCODE.md
 │   ├── 📝 OPERATIONS.md
 │   ├── 📝 OPERATIONS_CHEATSHEET.md

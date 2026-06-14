@@ -11,6 +11,7 @@
 
 ## Operaciones
 
+- **[OFFICE_SETUP_CHEATSHEET.md](OFFICE_SETUP_CHEATSHEET.md)** — Receta rápida para portátil de oficina: WSL2, fork IXATU, Chezmoi, SOPS/Age, Docker Desktop, MCPs y validación final.
 - **[OPERATIONS_CHEATSHEET.md](OPERATIONS_CHEATSHEET.md)** — Chuleta diaria: casa/oficina, drift Chezmoi, apply acotado, MCP, GitNexus, agentes.
 - **[OPERATIONS.md](OPERATIONS.md)** — Guía operativa principal: modelo mental (bootstrap / Chezmoi / update), máquina nueva o existente, secretos, MCPs y validaciones.
 

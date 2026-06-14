@@ -85,6 +85,7 @@ Detalle: [docs/OPERATIONS_CHEATSHEET.md](docs/OPERATIONS_CHEATSHEET.md).
 
 | Doc | Contenido |
 |-----|-----------|
+| **[docs/OFFICE_SETUP_CHEATSHEET.md](docs/OFFICE_SETUP_CHEATSHEET.md)** | Receta oficina WSL2/IXATU: remotos, Chezmoi, SOPS/Age, Docker Desktop, MCPs y validación final |
 | **[docs/OPERATIONS_CHEATSHEET.md](docs/OPERATIONS_CHEATSHEET.md)** | Chuleta diaria casa/oficina, drift Chezmoi, apply acotado, agentes |
 | **[docs/OPERATIONS.md](docs/OPERATIONS.md)** | Guía operativa principal (flujos, secretos, MCPs, riesgos) |
 | [docs/INSTALL.md](docs/INSTALL.md) | Bootstrap e instalación inicial |
