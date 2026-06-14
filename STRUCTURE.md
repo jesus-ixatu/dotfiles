@@ -371,6 +371,7 @@
 │   │   ├── 🔧 post-commit-gitnexus.sh
 │   │   └── 🔧 pre-commit-treegen.sh
 │   ├── 📁 lib
+│   │   ├── 🔧 docker-command-common.sh
 │   │   ├── 🔧 excalidraw-workspace-common.sh
 │   │   ├── 🔧 git-ai-common.sh
 │   │   ├── 🔧 git-ai-cursor-path.sh

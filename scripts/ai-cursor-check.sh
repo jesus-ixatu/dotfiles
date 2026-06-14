@@ -12,6 +12,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/install_common.sh"
 # shellcheck source=scripts/lib/excalidraw-workspace-common.sh
 source "${SCRIPT_DIR}/lib/excalidraw-workspace-common.sh"
+# shellcheck source=scripts/lib/docker-command-common.sh
+source "${SCRIPT_DIR}/lib/docker-command-common.sh"
 DOTFILES_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 HOME_ROOT="${HOME}"
@@ -36,6 +38,10 @@ EXCALIDRAW_EXPORT_DIR="/workspace/excalidraw"
 EXCALIDRAW_WORKSPACE_HOST="$(resolve_excalidraw_workspace_host)"
 EXCALIDRAW_WORKSPACE_MOUNT="${EXCALIDRAW_WORKSPACE_HOST}:${EXCALIDRAW_EXPORT_DIR}"
 EXCALIDRAW_VAULT_ROOT="$(resolve_excalidraw_vault_root "${EXCALIDRAW_WORKSPACE_HOST}")"
+EXCALIDRAW_DOCKER_CMD=""
+if resolve_excalidraw_docker_bin >/dev/null 2>/dev/null; then
+	EXCALIDRAW_DOCKER_CMD="${EXCALIDRAW_DOCKER_BIN_RESOLVED}"
+fi
 
 strict_mode=0
 if install_is_truthy "${STRICT:-}"; then
@@ -431,20 +437,24 @@ else
 fi
 
 if [[ -f "${CURSOR_MCP}" ]] && python3 -c "import json; d=json.load(open('${CURSOR_MCP}')); exit(0 if 'excalidraw_canvas' in d.get('mcpServers',{}) else 1)" 2>/dev/null; then
-	if command -v docker >/dev/null 2>&1; then
-		line OK "Docker CLI available for Excalidraw MCP"
-		if docker image inspect "${EXCALIDRAW_MCP_IMAGE}" >/dev/null 2>&1; then
+	if [[ -n "${EXCALIDRAW_DOCKER_CMD}" ]]; then
+		line OK "Docker CLI available for Excalidraw image operations"
+		line_info "Docker command: ${EXCALIDRAW_DOCKER_CMD}"
+		if [[ -n "${EXCALIDRAW_DOCKER_RESOLUTION_NOTE}" ]]; then
+			line_info "${EXCALIDRAW_DOCKER_RESOLUTION_NOTE}"
+		fi
+		if "${EXCALIDRAW_DOCKER_CMD}" image inspect "${EXCALIDRAW_MCP_IMAGE}" >/dev/null 2>&1; then
 			line OK "Excalidraw MCP Docker image present (${EXCALIDRAW_MCP_IMAGE})"
 		else
 			line WARN "Excalidraw MCP Docker image not present locally; run 'make excalidraw-update'"
 		fi
-		if docker image inspect "${EXCALIDRAW_CANVAS_IMAGE}" >/dev/null 2>&1; then
+		if "${EXCALIDRAW_DOCKER_CMD}" image inspect "${EXCALIDRAW_CANVAS_IMAGE}" >/dev/null 2>&1; then
 			line OK "Excalidraw canvas Docker image present (${EXCALIDRAW_CANVAS_IMAGE})"
 		else
 			line WARN "Excalidraw canvas Docker image not present locally; run 'make excalidraw-update'"
 		fi
 	else
-		line WARN "Docker CLI not available; Excalidraw MCP Docker runtime requires Docker Desktop"
+		line WARN "${EXCALIDRAW_DOCKER_RESOLUTION_ERROR:-No responsive Docker command found; open Docker Desktop or verify WSL integration.}"
 	fi
 fi
 

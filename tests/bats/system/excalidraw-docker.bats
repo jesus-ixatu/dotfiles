@@ -3,6 +3,7 @@
 setup() {
 	load '../helpers/common'
 	DOTFILES_DIR="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
+	DOCKER_HELPER="${DOTFILES_DIR}/scripts/lib/docker-command-common.sh"
 	setup_temp_dir
 	FAKE_BIN="${TEST_TEMP_DIR}/bin"
 	mkdir -p "${FAKE_BIN}"
@@ -18,6 +19,7 @@ setup() {
 #!/usr/bin/env bash
 echo "$*" >> "$DOCKER_LOG"
 case "$1" in
+  info) exit 0 ;;
   version) exit 0 ;;
   ps)
     if [[ "$*" == *"--format"* ]]; then exit 0; fi
@@ -34,6 +36,81 @@ EOF
 
 teardown() {
 	teardown_temp_dir
+}
+
+@test "excalidraw docker resolver chooses docker when it responds" {
+	run env PATH="${FAKE_BIN}:/usr/bin:/bin" bash -c 'source "$1"; resolve_excalidraw_docker_bin' _ "${DOCKER_HELPER}"
+	[[ "${status}" -eq 0 ]]
+	[[ "${output}" == "docker" ]]
+}
+
+@test "excalidraw docker resolver falls back to docker.exe when docker does not respond" {
+	local fallback_bin="${TEST_TEMP_DIR}/fallback-bin"
+	mkdir -p "${fallback_bin}"
+	cat >"${fallback_bin}/docker" <<'EOF'
+#!/usr/bin/env bash
+exit 1
+EOF
+	cat >"${fallback_bin}/docker.exe" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+  info) exit 0 ;;
+  ps) exit 0 ;;
+  *) exit 0 ;;
+esac
+EOF
+	chmod +x "${fallback_bin}/docker" "${fallback_bin}/docker.exe"
+	run env PATH="${fallback_bin}:/usr/bin:/bin" bash -c 'source "$1"; resolve_excalidraw_docker_bin >/dev/null; printf "%s|%s\n" "$EXCALIDRAW_DOCKER_BIN_RESOLVED" "$EXCALIDRAW_DOCKER_RESOLUTION_NOTE"' _ "${DOCKER_HELPER}"
+	[[ "${status}" -eq 0 ]]
+	[[ "${output}" == "docker.exe|docker exists but does not respond; using docker.exe" ]]
+
+	run env PATH="${fallback_bin}:/usr/bin:/bin" bash "${DOTFILES_DIR}/scripts/update/update-excalidraw.sh" status
+	[[ "${status}" -eq 0 ]]
+	[[ "${output}" == *"Docker command: docker.exe"* ]]
+	[[ "${output}" == *"docker exists but does not respond; using docker.exe"* ]]
+}
+
+@test "excalidraw docker resolver honors functional EXCALIDRAW_DOCKER_BIN override" {
+	local explicit_bin="${TEST_TEMP_DIR}/explicit docker"
+	cat >"${explicit_bin}" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+  info) exit 0 ;;
+  *) exit 0 ;;
+esac
+EOF
+	chmod +x "${explicit_bin}"
+	run env PATH="${FAKE_BIN}:/usr/bin:/bin" EXCALIDRAW_DOCKER_BIN="${explicit_bin}" bash -c 'source "$1"; resolve_excalidraw_docker_bin' _ "${DOCKER_HELPER}"
+	[[ "${status}" -eq 0 ]]
+	[[ "${output}" == "${explicit_bin}" ]]
+}
+
+@test "excalidraw docker resolver fails broken EXCALIDRAW_DOCKER_BIN without fallback" {
+	local explicit_bin="${TEST_TEMP_DIR}/broken-docker"
+	cat >"${explicit_bin}" <<'EOF'
+#!/usr/bin/env bash
+exit 1
+EOF
+	chmod +x "${explicit_bin}"
+	run env PATH="${FAKE_BIN}:/usr/bin:/bin" EXCALIDRAW_DOCKER_BIN="${explicit_bin}" bash -c 'source "$1"; resolve_excalidraw_docker_bin' _ "${DOCKER_HELPER}"
+	[[ "${status}" -ne 0 ]]
+	[[ "${output}" == *"EXCALIDRAW_DOCKER_BIN does not respond: ${explicit_bin}"* ]]
+	[[ "${output}" != *"docker.exe"* ]]
+
+	run env PATH="${FAKE_BIN}:/usr/bin:/bin" EXCALIDRAW_DOCKER_BIN="${explicit_bin}" bash "${DOTFILES_DIR}/scripts/update/update-excalidraw.sh" update
+	[[ "${status}" -ne 0 ]]
+	[[ "${output}" == *"EXCALIDRAW_DOCKER_BIN does not respond: ${explicit_bin}"* ]]
+	assert_file_not_contains "${DOCKER_LOG}" 'pull ghcr.io/yctimlin/mcp_excalidraw'
+}
+
+@test "excalidraw docker resolver fails clearly when no Docker command responds" {
+	local empty_path="${TEST_TEMP_DIR}/empty-docker-path"
+	mkdir -p "${empty_path}"
+	local bash_abs
+	bash_abs="$(command -v bash)"
+	run env PATH="${empty_path}" "${bash_abs}" -c 'source "$1"; resolve_excalidraw_docker_bin' _ "${DOCKER_HELPER}"
+	[[ "${status}" -ne 0 ]]
+	[[ "${output}" == *"No responsive Docker command found"* ]]
 }
 
 @test "excalidraw update pulls upstream Docker images" {
@@ -78,7 +155,7 @@ TOML
 	cat >"${down_bin}/docker" <<'EOF'
 #!/usr/bin/env bash
 case "$1" in
-  version) exit 1 ;;
+  info) exit 1 ;;
   *) exit 0 ;;
 esac
 EOF
@@ -86,10 +163,10 @@ EOF
 	run env PATH="${down_bin}:/usr/bin:/bin" RESULTS_FILE="$results_file" bash "${DOTFILES_DIR}/scripts/update/update-excalidraw.sh" update --results "$results_file"
 	[[ "${status}" -eq 0 ]]
 	[[ "${output}" == *"SKIP"* ]]
-	[[ "${output}" == *"Docker Desktop is not running"* ]]
+	[[ "${output}" == *"No responsive Docker command found"* ]]
 	[[ "${output}" == *"make excalidraw-update"* ]]
-	grep -q $'SKIP\tWSL\tExcalidraw Docker\tDocker Desktop is not running; Excalidraw images were not updated' "$results_file"
-	grep -q $'INFO\tWSL\tExcalidraw Docker\tRun '\''make excalidraw-update'\'' after starting Docker Desktop when needed' "$results_file"
+	grep -q $'SKIP\tWSL\tExcalidraw Docker\tNo responsive Docker command found; Excalidraw images were not updated' "$results_file"
+	grep -q $'INFO\tWSL\tExcalidraw Docker\tOpen Docker Desktop or verify WSL integration' "$results_file"
 	run bash -c "source '${DOTFILES_DIR}/scripts/update/lib/results.sh'; result_has_incidents '$results_file'"
 	[[ "${status}" -ne 0 ]]
 }
@@ -104,7 +181,7 @@ EOF
 	cat >"${down_bin}/docker" <<'EOF'
 #!/usr/bin/env bash
 case "$1" in
-  version) exit 1 ;;
+  info) exit 1 ;;
   pull) echo "pull should not run" >> "$DOCKER_LOG"; exit 0 ;;
   *) exit 0 ;;
 esac
@@ -112,9 +189,9 @@ EOF
 	chmod +x "${down_bin}/docker"
 	run env PATH="${down_bin}:/usr/bin:/bin" DOTFILES_FORCE_WSL=1 RESULTS_FILE="$results_file" bash "${DOTFILES_DIR}/scripts/update/update-excalidraw.sh" update --results "$results_file"
 	[[ "${status}" -eq 0 ]]
-	[[ "${output}" == *"Docker Desktop is not running"* ]]
+	[[ "${output}" == *"No responsive Docker command found"* ]]
 	assert_file_not_contains "${DOCKER_LOG}" 'pull should not run'
-	grep -q $'SKIP\tWSL\tExcalidraw Docker\tDocker Desktop is not running; Excalidraw images were not updated' "$results_file"
+	grep -q $'SKIP\tWSL\tExcalidraw Docker\tNo responsive Docker command found; Excalidraw images were not updated' "$results_file"
 }
 
 @test "excalidraw update fails before pulls when required helper is absent" {
@@ -153,6 +230,7 @@ EOF
 #!/usr/bin/env bash
 echo "$*" >> "$DOCKER_LOG"
 case "$1" in
+  info) exit 0 ;;
   ps|version|port) exit 0 ;;
   run) exit 0 ;;
   *) exit 0 ;;
@@ -185,6 +263,7 @@ PY
 #!/usr/bin/env bash
 echo "$*" >> "$DOCKER_LOG"
 case "$1" in
+  info) exit 0 ;;
   version) exit 0 ;;
   ps)
     if [[ "$*" == *"--format"* ]]; then echo "mcp-excalidraw-canvas"; fi
@@ -210,6 +289,7 @@ EOF
 	cat >"${stale_bin}/docker" <<'EOF'
 #!/usr/bin/env bash
 case "$1" in
+  info) exit 0 ;;
   version) exit 0 ;;
   ps)
     if [[ "$*" == *"--format"* ]]; then echo "mcp-excalidraw-canvas"; fi
@@ -263,7 +343,7 @@ EOF
 	bash_abs="$(command -v bash)"
 	run env PATH="$empty_path" "$bash_abs" "${DOTFILES_DIR}/scripts/update/update-excalidraw.sh" status
 	[[ "${status}" -eq 0 ]]
-	[[ "${output}" == *"Docker CLI not found"* ]]
+	[[ "${output}" == *"No responsive Docker command found"* ]]
 }
 
 @test "excalidraw stop is tolerant when canvas is already stopped" {

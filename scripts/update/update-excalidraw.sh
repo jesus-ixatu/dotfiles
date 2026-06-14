@@ -12,6 +12,8 @@ source "${SCRIPT_DIR}/lib/logging.sh"
 source "${SCRIPT_DIR}/lib/docker_desktop_credentials.sh"
 # shellcheck source=scripts/lib/excalidraw-workspace-common.sh
 source "${SCRIPT_DIR}/../lib/excalidraw-workspace-common.sh"
+# shellcheck source=scripts/lib/docker-command-common.sh
+source "${SCRIPT_DIR}/../lib/docker-command-common.sh"
 
 ACTION="${1:-status}"
 shift || true
@@ -39,23 +41,22 @@ CANVAS_PORT="${EXCALIDRAW_CANVAS_PORT:-3210}"
 CANVAS_URL="${EXCALIDRAW_CANVAS_URL:-http://127.0.0.1:${CANVAS_PORT}}"
 WORKSPACE_HOST="$(resolve_excalidraw_workspace_host)"
 WORKSPACE_CONTAINER="${EXCALIDRAW_EXPORT_DIR:-/workspace/excalidraw}"
+EXCALIDRAW_DOCKER_CMD=""
+if resolve_excalidraw_docker_bin >/dev/null 2>/dev/null; then
+	EXCALIDRAW_DOCKER_CMD="${EXCALIDRAW_DOCKER_BIN_RESOLVED}"
+fi
 
 docker_cmd() {
-	if [[ -n "${EXCALIDRAW_DOCKER_BIN:-}" ]]; then
-		printf '%s\n' "$EXCALIDRAW_DOCKER_BIN"
-	elif command -v docker >/dev/null 2>&1; then
-		printf 'docker\n'
-	elif command -v docker.exe >/dev/null 2>&1; then
-		printf 'docker.exe\n'
-	else
-		return 1
-	fi
+	[[ -n "${EXCALIDRAW_DOCKER_CMD}" ]] || return 1
+	printf '%s\n' "${EXCALIDRAW_DOCKER_CMD}"
 }
 
 docker_available() {
-	local d
-	d="$(docker_cmd)" || return 1
-	"$d" version >/dev/null 2>&1
+	[[ -n "${EXCALIDRAW_DOCKER_CMD}" ]]
+}
+
+docker_resolution_message() {
+	printf '%s\n' "${EXCALIDRAW_DOCKER_RESOLUTION_ERROR:-No responsive Docker command found; open Docker Desktop or verify WSL integration.}"
 }
 
 canvas_running() {
@@ -100,7 +101,7 @@ port_in_use() {
 case "$ACTION" in
 start)
 	d="$(docker_cmd)" || {
-		echo "Docker CLI not found"
+		echo "WARN   $(docker_resolution_message)"
 		exit 1
 	}
 	if canvas_running; then
@@ -137,7 +138,7 @@ start)
 	;;
 stop)
 	d="$(docker_cmd)" || {
-		echo "Docker CLI not found"
+		echo "WARN   $(docker_resolution_message)"
 		exit 0
 	}
 	if canvas_running; then
@@ -149,15 +150,15 @@ stop)
 	;;
 status)
 	if ! d="$(docker_cmd)"; then
-		echo "WARN   Docker CLI not found"
+		echo "WARN   $(docker_resolution_message)"
+		echo "WARN   Docker does not respond; open Docker Desktop or verify WSL integration"
 		exit 0
 	fi
 	echo "INFO   Docker command: $d"
-	if docker_available; then
-		echo "OK     Docker responds"
-	else
-		echo "WARN   Docker does not respond; open Docker Desktop"
+	if [[ -n "${EXCALIDRAW_DOCKER_RESOLUTION_NOTE}" ]]; then
+		echo "INFO   ${EXCALIDRAW_DOCKER_RESOLUTION_NOTE}"
 	fi
+	echo "OK     Docker responds"
 	if canvas_running; then
 		mapping="$(canvas_port_mapping)"
 		if mapping_is_expected "$mapping"; then
@@ -173,23 +174,22 @@ status)
 	;;
 update)
 	if ! d="$(docker_cmd)"; then
-		msg="Docker CLI not found; Excalidraw images were not updated"
-		note="Run 'make excalidraw-update' after Docker is available if you need this optional component"
-		skip "$msg"
-		info "$note"
-		if [[ -n "${RESULTS_FILE:-}" ]]; then
-			result_skip "WSL" "Excalidraw Docker" "$msg"
-			result_info "WSL" "Excalidraw Docker" "$note"
+		if [[ "${EXCALIDRAW_DOCKER_EXPLICIT_FAILED}" -eq 1 ]]; then
+			msg="$(docker_resolution_message)"
+			warn "$msg"
+			if [[ -n "${RESULTS_FILE:-}" ]]; then
+				result_fail "WSL" "Excalidraw Docker" "$msg"
+			fi
+			exit 1
 		fi
-		exit 0
-	fi
-	if ! docker_available; then
-		msg="Docker Desktop is not running; Excalidraw images were not updated"
-		note="Run 'make excalidraw-update' after starting Docker Desktop when needed"
+		msg="No responsive Docker command found; Excalidraw images were not updated"
+		note="Open Docker Desktop or verify WSL integration, then run 'make excalidraw-update' if you need this optional component"
 		skip "$msg"
+		info "$(docker_resolution_message)"
 		info "$note"
 		if [[ -n "${RESULTS_FILE:-}" ]]; then
 			result_skip "WSL" "Excalidraw Docker" "$msg"
+			result_info "WSL" "Excalidraw Docker" "$(docker_resolution_message)"
 			result_info "WSL" "Excalidraw Docker" "$note"
 		fi
 		exit 0

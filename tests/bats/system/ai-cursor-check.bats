@@ -345,3 +345,34 @@ SH
 	[[ "${output}" == *"Docker MCP Toolkit responds via docker.exe"* ]]
 	[[ "${output}" == *"Docker MCP Gateway available via docker.exe; no Docker MCP profile/server enabled yet"* ]]
 }
+
+@test "ai-cursor-check uses docker.exe fallback for Excalidraw image inspection" {
+	local fake_home stub_path
+	fake_home="$(mktemp -d)"
+	stub_path="$(mktemp -d)"
+	mkdir -p "${fake_home}/.cursor" /mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw
+	cat >"${fake_home}/.cursor/mcp.json" <<'JSON'
+{"mcpServers":{"excalidraw_canvas":{"command":"docker","args":["run","-i","--rm","-e","EXPRESS_SERVER_URL=http://host.docker.internal:3210","-e","ENABLE_CANVAS_SYNC=true","-e","EXCALIDRAW_EXPORT_DIR=/workspace/excalidraw","-v","/mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw:/workspace/excalidraw","ghcr.io/yctimlin/mcp_excalidraw:latest"],"env":{}}}}
+JSON
+	cat >"${stub_path}/docker" <<'SH'
+#!/usr/bin/env bash
+exit 1
+SH
+	cat >"${stub_path}/docker.exe" <<'SH'
+#!/usr/bin/env bash
+case "$1 $2" in
+  "info ") exit 0 ;;
+  "image inspect") exit 0 ;;
+  *) exit 0 ;;
+esac
+SH
+	chmod +x "${stub_path}/docker" "${stub_path}/docker.exe"
+	run env HOME="${fake_home}" PATH="${stub_path}:${PATH}" bash "${AI_CURSOR_CHECK}"
+	rm -rf "${fake_home}" "${stub_path}"
+	[[ "${status}" -eq 0 ]]
+	[[ "${output}" == *"Docker CLI available for Excalidraw image operations"* ]]
+	[[ "${output}" == *"Docker command: docker.exe"* ]]
+	[[ "${output}" == *"docker exists but does not respond; using docker.exe"* ]]
+	[[ "${output}" == *"Excalidraw MCP Docker image present"* ]]
+	[[ "${output}" == *"Excalidraw canvas Docker image present"* ]]
+}

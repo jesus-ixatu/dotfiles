@@ -170,6 +170,10 @@ EOF
 	cat >"${stub_dir}/docker" <<EOF
 #!/usr/bin/env bash
 case "\$1" in
+  info)
+    [[ "${docker_mode}" == "down" ]] && exit 1
+    exit 0
+    ;;
   version)
     [[ "${docker_mode}" == "down" ]] && exit 1
     exit 0
