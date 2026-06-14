@@ -158,16 +158,10 @@ EOF
 	chmod +x "${stub_dir}/npm"
 }
 
-write_update_check_fake_bin() {
-	local stub_dir="$1" docker_mode="${2:-ok}"
-	for cmd in bash python3 mktemp rm dirname pwd mkdir grep tee date tr chmod head sed make; do
-		ln -sf "$(command -v "$cmd")" "${stub_dir}/${cmd}"
-	done
-	cat >"${stub_dir}/node" <<'EOF'
-#!/usr/bin/env bash
-case "$1" in --version) echo "v24.11.1";; *) exit 0;; esac
-EOF
-	cat >"${stub_dir}/docker" <<EOF
+write_update_check_docker_stub() {
+	local docker_path="$1" docker_mode="$2"
+	[[ "${docker_mode}" != "missing" ]] || return 0
+	cat >"${docker_path}" <<EOF
 #!/usr/bin/env bash
 case "\$1" in
   info)
@@ -179,11 +173,25 @@ case "\$1" in
     exit 0
     ;;
   ps|port|inspect) exit 0 ;;
-  pull|run) echo "unexpected mutation: docker \$*" >&2; exit 77 ;;
+  pull|run) echo "unexpected mutation: \$(basename "\$0") \$*" >&2; exit 77 ;;
   *) exit 0 ;;
 esac
 EOF
-	chmod +x "${stub_dir}/node" "${stub_dir}/docker"
+	chmod +x "${docker_path}"
+}
+
+write_update_check_fake_bin() {
+	local stub_dir="$1" docker_mode="${2:-ok}" docker_exe_mode="${3:-missing}"
+	for cmd in bash python3 mktemp rm dirname pwd mkdir grep tee date tr chmod head sed make; do
+		ln -sf "$(command -v "$cmd")" "${stub_dir}/${cmd}"
+	done
+	cat >"${stub_dir}/node" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in --version) echo "v24.11.1";; *) exit 0;; esac
+EOF
+	chmod +x "${stub_dir}/node"
+	write_update_check_docker_stub "${stub_dir}/docker" "${docker_mode}"
+	write_update_check_docker_stub "${stub_dir}/docker.exe" "${docker_exe_mode}"
 }
 
 @test "run_step preserves real exit codes and logs stderr for missing commands" {
@@ -2021,6 +2029,52 @@ EOF
 	[[ "${output}" == *"Node.js effective runtime: v24.11.1 (${stub_dir24}/node)"* ]]
 }
 
+@test "update-check uses docker when it responds" {
+	local fake_home="${TEST_TEMP_DIR}/home-update-check-docker-ok"
+	local stub_dir="${TEST_TEMP_DIR}/update-check-docker-ok-bin"
+	local docker_config="${TEST_TEMP_DIR}/update-check-docker-ok-config"
+	mkdir -p "$fake_home" "$stub_dir" "$docker_config"
+	write_update_check_fake_bin "$stub_dir" ok
+
+	run env HOME="$fake_home" PATH="$stub_dir" DOTFILES_FORCE_WSL=1 DOCKER_CONFIG="$docker_config" bash "${DOTFILES_DIR}/scripts/update/update-check.sh"
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == *"Docker command: docker"* ]]
+	[[ "$output" == *"Docker responds"* ]]
+	[[ "$output" != *"Docker command: docker.exe"* ]]
+	[[ "$output" != *"docker exists but does not respond; using docker.exe"* ]]
+	[[ "$output" != *"No responsive Docker command found"* ]]
+}
+
+@test "update-check falls back to docker.exe when docker does not respond" {
+	local fake_home="${TEST_TEMP_DIR}/home-update-check-docker-exe"
+	local stub_dir="${TEST_TEMP_DIR}/update-check-docker-exe-bin"
+	local docker_config="${TEST_TEMP_DIR}/update-check-docker-exe-config"
+	mkdir -p "$fake_home" "$stub_dir" "$docker_config"
+	write_update_check_fake_bin "$stub_dir" down ok
+
+	run env HOME="$fake_home" PATH="$stub_dir" DOTFILES_FORCE_WSL=1 DOCKER_CONFIG="$docker_config" bash "${DOTFILES_DIR}/scripts/update/update-check.sh"
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == *"Docker command: docker.exe"* ]]
+	[[ "$output" == *"docker exists but does not respond; using docker.exe"* ]]
+	[[ "$output" == *"Docker responds"* ]]
+	[[ "$output" != *"No responsive Docker command found"* ]]
+	[[ "$output" != *"Docker credential helper check deferred until Docker is available"* ]]
+}
+
+@test "update-check keeps docker preference when docker and docker.exe both respond" {
+	local fake_home="${TEST_TEMP_DIR}/home-update-check-linux-preference"
+	local stub_dir="${TEST_TEMP_DIR}/update-check-linux-preference-bin"
+	local docker_config="${TEST_TEMP_DIR}/update-check-linux-preference-config"
+	mkdir -p "$fake_home" "$stub_dir" "$docker_config"
+	write_update_check_fake_bin "$stub_dir" ok ok
+
+	run env HOME="$fake_home" PATH="$stub_dir" DOTFILES_FORCE_WSL=1 DOCKER_CONFIG="$docker_config" bash "${DOTFILES_DIR}/scripts/update/update-check.sh"
+	[[ "$status" -eq 0 ]]
+	[[ "$output" == *"Docker command: docker"* ]]
+	[[ "$output" != *"Docker command: docker.exe"* ]]
+	[[ "$output" != *"docker exists but does not respond; using docker.exe"* ]]
+}
+
 @test "update-check ignores Docker Desktop helper for unrelated registry" {
 	local fake_home="${TEST_TEMP_DIR}/home-update-check-unrelated"
 	local stub_dir="${TEST_TEMP_DIR}/update-check-unrelated-bin"
@@ -2066,7 +2120,8 @@ EOF
 EOF
 	run env HOME="$fake_home" PATH="$stub_dir" DOTFILES_FORCE_WSL=1 DOCKER_CONFIG="$docker_config" bash "${DOTFILES_DIR}/scripts/update/update-check.sh"
 	[[ "$status" -eq 0 ]]
-	[[ "$output" == *"Docker daemon does not respond"* ]]
+	[[ "$output" == *"No responsive Docker command found"* ]]
+	[[ "$output" == *"Docker credential helper check deferred until Docker is available"* ]]
 	[[ "$output" == *"Docker does not respond"* ]]
 	[[ "$output" != *"make install-docker-desktop-helper"* ]]
 }

@@ -9,19 +9,11 @@ source "${SCRIPT_DIR}/lib/environment.sh"
 source "${SCRIPT_DIR}/lib/node_runtime.sh"
 # shellcheck source=scripts/update/lib/docker_desktop_credentials.sh
 source "${SCRIPT_DIR}/lib/docker_desktop_credentials.sh"
+# shellcheck source=scripts/lib/docker-command-common.sh
+source "${SCRIPT_DIR}/../lib/docker-command-common.sh"
 
 status() {
 	printf '%-6s %s\n' "$1" "$2"
-}
-
-docker_check_cmd() {
-	if command -v docker >/dev/null 2>&1; then
-		printf 'docker\n'
-	elif command -v docker.exe >/dev/null 2>&1; then
-		printf 'docker.exe\n'
-	else
-		return 1
-	fi
 }
 
 echo "==> Dotfiles update readiness"
@@ -40,21 +32,23 @@ while IFS=$'\t' read -r state message; do
 	[[ -n "$state" && -n "$message" ]] || continue
 	status "$state" "$message"
 done < <(node_runtime_diagnostic_effective)
-if docker_cmd="$(docker_check_cmd)"; then
-	status OK "Docker CLI available for Excalidraw image operations"
-	if "$docker_cmd" version >/dev/null 2>&1; then
-		if check_docker_credentials_for_images \
-			"ghcr.io/yctimlin/mcp_excalidraw-canvas:latest" \
-			"ghcr.io/yctimlin/mcp_excalidraw:latest"; then
-			status OK "${DOCKER_CREDENTIALS_LAST_MESSAGE}"
-		else
-			status WARN "${DOCKER_CREDENTIALS_LAST_MESSAGE}"
-		fi
+docker_cmd=""
+docker_note=""
+docker_error=""
+if resolve_responsive_docker_bin docker_cmd docker_note docker_error; then
+	status INFO "Docker command: ${docker_cmd}"
+	[[ -z "${docker_note}" ]] || status INFO "${docker_note}"
+	status OK "Docker responds"
+	if check_docker_credentials_for_images \
+		"ghcr.io/yctimlin/mcp_excalidraw-canvas:latest" \
+		"ghcr.io/yctimlin/mcp_excalidraw:latest"; then
+		status OK "${DOCKER_CREDENTIALS_LAST_MESSAGE}"
 	else
-		status WARN "Docker daemon does not respond; credential helper check deferred until Docker is available"
+		status WARN "${DOCKER_CREDENTIALS_LAST_MESSAGE}"
 	fi
 else
-	status WARN "Docker CLI unavailable; Excalidraw image update will be skipped"
+	status WARN "${docker_error:-No responsive Docker command found; open Docker Desktop or verify WSL integration.}"
+	status WARN "Docker credential helper check deferred until Docker is available"
 fi
 if [[ -f "${DOTFILES_ROOT}/ai/assets/mcps/MANIFEST.yaml" ]]; then
 	status OK "MCP manifest present"
