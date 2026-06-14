@@ -58,7 +58,7 @@ If `upstream` is missing:
 git remote add upstream https://github.com/jesuserro/dotfiles.git
 ```
 
-Update local `dev` from canonical upstream:
+Human decision only: update local `dev` from canonical upstream:
 
 ```bash
 git fetch --all --prune
@@ -66,7 +66,7 @@ git checkout dev
 git pull --ff-only upstream dev
 ```
 
-Push, merge conflict resolution, commits, and rebases are human decisions.
+Push, merge conflict resolution, commits, and rebases are also human decisions.
 
 ## 5. Chezmoi checks
 
