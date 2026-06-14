@@ -27,7 +27,7 @@ export DOTFILES_APPLY
 # Optional passthrough to the declarative APT installer (same as deps-install).
 DEPS_INSTALL_ARGS ?=
 
-.PHONY: install-check install-apt install-external install-dotfiles install-verify install install-zsh-stack install-fonts install-uv install-sops install-chezmoi install-node-stack install-docker-desktop-helper install-azure-cli install-agent-tools install-mattpocock-skills install-mcp-github install-git-hooks set-default-shell-zsh ai-cursor-check chezmoi-drift-report mcp-launcher-contract-check gitnexus-status ai-mcp-validate ai-mcp-render ai-mcp-drift ai-mcp-governance ai-mcp-generate
+.PHONY: install-check install-apt install-external install-dotfiles install-verify install install-zsh-stack install-fonts install-uv install-sops install-chezmoi install-node-stack install-docker-desktop-helper install-azure-cli install-agent-tools install-mattpocock-skills install-mcp-github install-git-hooks set-default-shell-zsh secrets-check ai-cursor-check chezmoi-drift-report mcp-launcher-contract-check gitnexus-status ai-mcp-validate ai-mcp-render ai-mcp-drift ai-mcp-governance ai-mcp-generate
 
 install-check:
 	@bash $(DOTFILES_DIR)/scripts/install-check.sh
@@ -131,6 +131,10 @@ install-mcp-github:
 # `make install` or `make update`; each checkout opts in independently.
 install-git-hooks:
 	@bash $(DOTFILES_DIR)/scripts/install-git-hooks.sh
+
+# Non-mutating SOPS/Age/Chezmoi secrets readiness check; never prints values.
+secrets-check:
+	@bash $(DOTFILES_DIR)/scripts/secrets-check.sh
 
 # Non-mutating readiness: Cursor MCPs, skills, AI commands (no chezmoi apply).
 ai-cursor-check:

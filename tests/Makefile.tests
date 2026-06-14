@@ -66,6 +66,7 @@ help:
 	@echo "  make ai-mcp-render               Dry-run MCP configs to build/mcps/"
 	@echo "  make ai-mcp-drift                Drift report vs MCP templates"
 	@echo "  make ai-cursor-check             Check Cursor/MCP readiness in HOME"
+	@echo "  make secrets-check               Check SOPS/Age/Chezmoi secrets readiness"
 	@echo "  make update-check                Read-only update/runtime diagnostics"
 	@echo "  make ai-doctor                   Read-only AI readiness checks"
 	@echo "  make agent-validate              Dotfiles agent gate (read-only; skills, MCP, docs, changed files)"
@@ -452,6 +453,7 @@ bats-system: bats-zsh
 	@$(call run_bats,$(BATS_DIR)/system/dry-run-guard.bats)
 	@$(call run_bats,$(BATS_DIR)/system/azure-tools.bats)
 	@$(call run_bats,$(BATS_DIR)/system/ai-cursor-check.bats)
+	@$(call run_bats,$(BATS_DIR)/system/secrets-check.bats)
 	@$(call run_bats,$(BATS_DIR)/system/mcp-manifest.bats)
 	@$(call run_bats,$(BATS_DIR)/system/mcp-render-drift.bats)
 	@$(call run_bats,$(BATS_DIR)/system/install-agent-skills.bats)

@@ -461,6 +461,7 @@
 │   ├── 🔧 install-zsh-stack.sh
 │   ├── 🔧 materialize-commands.sh
 │   ├── 🔧 mcp-launcher-contract-check.sh
+│   ├── 🔧 secrets-check.sh
 │   ├── 🔧 security-osv-scan.sh
 │   ├── 🔧 set-default-shell-zsh.sh
 │   ├── 🔧 shell-audit-check.sh
@@ -559,6 +560,7 @@
 │   │   │   ├── 📄 mcp-manifest.bats
 │   │   │   ├── 📄 mcp-render-drift.bats
 │   │   │   ├── 📄 playwright-docker.bats
+│   │   │   ├── 📄 secrets-check.bats
 │   │   │   ├── 📄 security-osv-scan.bats
 │   │   │   ├── 📄 shell-audit-check.bats
 │   │   │   ├── 📄 system-deps.bats
