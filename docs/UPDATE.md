@@ -172,7 +172,7 @@ make install-docker-desktop-helper
 
 El reparador respeta `credsStore` y `credHelpers`, no edita `config.json`, y crea el nombre exacto que Docker intentará ejecutar para la configuración activa. Si Docker Desktop está instalado en una ruta no estándar, define `DOCKER_DESKTOP_CREDENTIAL_HELPER_SOURCE` con la ruta del ejecutable helper de Windows.
 
-El acceso a ficheros del MCP queda deliberadamente acotado: los clientes lanzan el contenedor efímero con `EXCALIDRAW_EXPORT_DIR=/workspace/excalidraw` y un bind mount estrecho de `/mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw` a `/workspace/excalidraw`. Esto mantiene la protección de path traversal y evita montar todo `vault_trabajo`.
+El acceso a ficheros del MCP queda deliberadamente acotado: los clientes lanzan el contenedor efímero con `EXCALIDRAW_EXPORT_DIR=/workspace/excalidraw` y un bind mount estrecho desde la ruta resuelta por Chezmoi (`data.ai.excalidraw_workspace_host`, o `data.ai.obsidian_vault_path` + `/excalidraw`) a `/workspace/excalidraw`. Esto mantiene la protección de path traversal y evita montar todo el vault.
 
 Los diagramas maestros viven como `.excalidraw` en los vaults de Obsidian. Las notas nativas de Obsidian usan `.excalidraw.md`, pero para agentes hay que importar el sidecar `.excalidraw`, no el wrapper `.md`. SVG es la salida recomendada para Markdown/PDF técnico; PNG queda para compatibilidad.
 
