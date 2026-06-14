@@ -10,6 +10,8 @@ source "${SCRIPT_DIR}/lib/results.sh"
 source "${SCRIPT_DIR}/lib/logging.sh"
 # shellcheck source=scripts/update/lib/docker_desktop_credentials.sh
 source "${SCRIPT_DIR}/lib/docker_desktop_credentials.sh"
+# shellcheck source=scripts/lib/excalidraw-workspace-common.sh
+source "${SCRIPT_DIR}/../lib/excalidraw-workspace-common.sh"
 
 ACTION="${1:-status}"
 shift || true
@@ -35,7 +37,7 @@ MCP_IMAGE="${EXCALIDRAW_MCP_IMAGE:-ghcr.io/yctimlin/mcp_excalidraw:latest}"
 CANVAS_NAME="${EXCALIDRAW_CANVAS_NAME:-mcp-excalidraw-canvas}"
 CANVAS_PORT="${EXCALIDRAW_CANVAS_PORT:-3210}"
 CANVAS_URL="${EXCALIDRAW_CANVAS_URL:-http://127.0.0.1:${CANVAS_PORT}}"
-WORKSPACE_HOST="${EXCALIDRAW_WORKSPACE_HOST:-/mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw}"
+WORKSPACE_HOST="$(resolve_excalidraw_workspace_host)"
 WORKSPACE_CONTAINER="${EXCALIDRAW_EXPORT_DIR:-/workspace/excalidraw}"
 
 docker_cmd() {

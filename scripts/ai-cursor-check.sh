@@ -10,6 +10,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib/install_common.sh
 source "${SCRIPT_DIR}/lib/install_common.sh"
+# shellcheck source=scripts/lib/excalidraw-workspace-common.sh
+source "${SCRIPT_DIR}/lib/excalidraw-workspace-common.sh"
 DOTFILES_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 HOME_ROOT="${HOME}"
@@ -31,9 +33,9 @@ EXCALIDRAW_CANVAS_IMAGE="ghcr.io/yctimlin/mcp_excalidraw-canvas:latest"
 EXCALIDRAW_EXPRESS_SERVER_URL="http://host.docker.internal:3210"
 EXCALIDRAW_MCP_NAME="excalidraw_canvas"
 EXCALIDRAW_EXPORT_DIR="/workspace/excalidraw"
-EXCALIDRAW_WORKSPACE_HOST="/mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw"
+EXCALIDRAW_WORKSPACE_HOST="$(resolve_excalidraw_workspace_host)"
 EXCALIDRAW_WORKSPACE_MOUNT="${EXCALIDRAW_WORKSPACE_HOST}:${EXCALIDRAW_EXPORT_DIR}"
-EXCALIDRAW_VAULT_ROOT="/mnt/c/Users/jesus/Documents/vault_trabajo"
+EXCALIDRAW_VAULT_ROOT="$(resolve_excalidraw_vault_root "${EXCALIDRAW_WORKSPACE_HOST}")"
 
 strict_mode=0
 if install_is_truthy "${STRICT:-}"; then
@@ -389,6 +391,7 @@ else:
 print(
     json.dumps(
         {
+            "stats_available": True,
             "cursor_template_count": cursor_tpl_n,
             "manifest_cursor_expected": manifest_cursor_expected,
             "codex_enabled_count": codex_en,
@@ -646,7 +649,8 @@ if [[ ! -f "${CURSOR_TMPL}" ]]; then
 	line FAIL "Cursor MCP template missing: ${CURSOR_TMPL}"
 fi
 
-stats_json="$(mcp_stats_py 2>/dev/null || echo '{}')"
+stats_json="$(mcp_stats_py 2>/dev/null || echo '{"stats_available": false}')"
+stats_available="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print('1' if d.get('stats_available') else '0')" 2>/dev/null || echo 0)"
 ct="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('cursor_template_count',0))" 2>/dev/null || echo 0)"
 ce="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('codex_enabled_count',0))" 2>/dev/null || echo 0)"
 oe="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('opencode_enabled_count',0))" 2>/dev/null || echo 0)"
@@ -654,10 +658,20 @@ hn="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys
 herr="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('cursor_home_error',''))" 2>/dev/null || echo "")"
 mf="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('manifest_cursor_expected',-1))" 2>/dev/null || echo -1)"
 
-if [[ "${hn}" -ge 0 ]]; then
+if [[ "${stats_available}" != "1" ]]; then
+	if [[ -f "${CURSOR_MCP}" ]]; then
+		line_info "MCP surfaces: Cursor template=${ct} (manifest cursor enabled=${mf}), Cursor home=(present, stats unavailable), Codex enabled=${ce}, OpenCode enabled=${oe}"
+	else
+		line_info "MCP surfaces: Cursor template=${ct} (manifest cursor enabled=${mf}), Cursor home=(no ~/.cursor/mcp.json), Codex enabled=${ce}, OpenCode enabled=${oe}"
+	fi
+elif [[ "${hn}" -ge 0 ]]; then
 	line_info "MCP surfaces: Cursor template=${ct} (manifest cursor enabled=${mf}), Cursor home=${hn}, Codex enabled=${ce}, OpenCode enabled=${oe}"
 else
-	line_info "MCP surfaces: Cursor template=${ct} (manifest cursor enabled=${mf}), Cursor home=(no ~/.cursor/mcp.json), Codex enabled=${ce}, OpenCode enabled=${oe}"
+	if [[ -f "${CURSOR_MCP}" ]]; then
+		line_info "MCP surfaces: Cursor template=${ct} (manifest cursor enabled=${mf}), Cursor home=(present, stats unavailable), Codex enabled=${ce}, OpenCode enabled=${oe}"
+	else
+		line_info "MCP surfaces: Cursor template=${ct} (manifest cursor enabled=${mf}), Cursor home=(no ~/.cursor/mcp.json), Codex enabled=${ce}, OpenCode enabled=${oe}"
+	fi
 fi
 line_info "MCP manifest: ai/assets/mcps/MANIFEST.yaml — validate: make ai-mcp-validate; drift: make ai-mcp-drift; apply templates: make ai-mcp-generate APPLY=1"
 

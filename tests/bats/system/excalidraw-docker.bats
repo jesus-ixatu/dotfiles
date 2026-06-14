@@ -52,10 +52,23 @@ teardown() {
 }
 
 @test "excalidraw status reports dedicated canvas port" {
-	run env PATH="${FAKE_BIN}:/usr/bin:/bin" bash "${DOTFILES_DIR}/scripts/update/update-excalidraw.sh" status
+	run env PATH="${FAKE_BIN}:/usr/bin:/bin" EXCALIDRAW_WORKSPACE_HOST="/tmp/My Excalidraw Workspace" bash "${DOTFILES_DIR}/scripts/update/update-excalidraw.sh" status
 	[[ "${status}" -eq 0 ]]
 	[[ "${output}" == *"http://127.0.0.1:3210"* ]]
-	[[ "${output}" == *"/mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw -> /workspace/excalidraw"* ]]
+	[[ "${output}" == *"/tmp/My Excalidraw Workspace -> /workspace/excalidraw"* ]]
+}
+
+@test "excalidraw status resolves workspace from Chezmoi config with spaces" {
+	local cfg workspace
+	cfg="${TEST_TEMP_DIR}/chezmoi.toml"
+	workspace="${TEST_TEMP_DIR}/Vault With Spaces/excalidraw"
+	cat >"${cfg}" <<TOML
+[data.ai]
+excalidraw_workspace_host = "${workspace}"
+TOML
+	run env PATH="${FAKE_BIN}:/usr/bin:/bin" CHEZMOI_CONFIG="${cfg}" bash "${DOTFILES_DIR}/scripts/update/update-excalidraw.sh" status
+	[[ "${status}" -eq 0 ]]
+	[[ "${output}" == *"${workspace} -> /workspace/excalidraw"* ]]
 }
 
 @test "excalidraw update reports Docker Desktop down as SKIP and not incident" {

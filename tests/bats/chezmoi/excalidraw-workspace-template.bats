@@ -51,22 +51,22 @@ assert_excalidraw_mount() {
 
 @test "excalidraw MCP templates use explicit excalidraw_workspace_host when set" {
 	local cfg="${TEST_TEMP_DIR}/chezmoi-explicit.toml"
-	write_chezmoi_config "${cfg}" "/tmp/vault" "/custom/excalidraw"
+	write_chezmoi_config "${cfg}" "/tmp/Vault With Spaces" "/custom/Excalidraw Workspace"
 
 	for tmpl in dot_cursor/mcp.json.tmpl dot_codex/private_config.toml.tmpl dot_config/opencode/opencode.json.tmpl; do
 		run render_template "${cfg}" "${tmpl}"
 		[[ "${status}" -eq 0 ]]
-		assert_excalidraw_mount "${output}" "/custom/excalidraw"
+		assert_excalidraw_mount "${output}" "/custom/Excalidraw Workspace"
 	done
 }
 
 @test "excalidraw MCP templates fall back to obsidian_vault_path/excalidraw when key missing" {
 	local cfg="${TEST_TEMP_DIR}/chezmoi-fallback.toml"
-	write_chezmoi_config "${cfg}" "/tmp/vault"
+	write_chezmoi_config "${cfg}" "/tmp/Vault With Spaces"
 
 	for tmpl in dot_cursor/mcp.json.tmpl dot_codex/private_config.toml.tmpl dot_config/opencode/opencode.json.tmpl; do
 		run render_template "${cfg}" "${tmpl}"
 		[[ "${status}" -eq 0 ]]
-		assert_excalidraw_mount "${output}" "/tmp/vault/excalidraw"
+		assert_excalidraw_mount "${output}" "/tmp/Vault With Spaces/excalidraw"
 	done
 }
