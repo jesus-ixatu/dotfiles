@@ -10,6 +10,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib/install_common.sh
 source "${SCRIPT_DIR}/lib/install_common.sh"
+# shellcheck source=scripts/lib/excalidraw-workspace-common.sh
+source "${SCRIPT_DIR}/lib/excalidraw-workspace-common.sh"
+# shellcheck source=scripts/lib/docker-command-common.sh
+source "${SCRIPT_DIR}/lib/docker-command-common.sh"
 DOTFILES_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 HOME_ROOT="${HOME}"
@@ -31,9 +35,13 @@ EXCALIDRAW_CANVAS_IMAGE="ghcr.io/yctimlin/mcp_excalidraw-canvas:latest"
 EXCALIDRAW_EXPRESS_SERVER_URL="http://host.docker.internal:3210"
 EXCALIDRAW_MCP_NAME="excalidraw_canvas"
 EXCALIDRAW_EXPORT_DIR="/workspace/excalidraw"
-EXCALIDRAW_WORKSPACE_HOST="/mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw"
+EXCALIDRAW_WORKSPACE_HOST="$(resolve_excalidraw_workspace_host)"
 EXCALIDRAW_WORKSPACE_MOUNT="${EXCALIDRAW_WORKSPACE_HOST}:${EXCALIDRAW_EXPORT_DIR}"
-EXCALIDRAW_VAULT_ROOT="/mnt/c/Users/jesus/Documents/vault_trabajo"
+EXCALIDRAW_VAULT_ROOT="$(resolve_excalidraw_vault_root "${EXCALIDRAW_WORKSPACE_HOST}")"
+EXCALIDRAW_DOCKER_CMD=""
+if resolve_excalidraw_docker_bin >/dev/null 2>/dev/null; then
+	EXCALIDRAW_DOCKER_CMD="${EXCALIDRAW_DOCKER_BIN_RESOLVED}"
+fi
 
 strict_mode=0
 if install_is_truthy "${STRICT:-}"; then
@@ -389,6 +397,7 @@ else:
 print(
     json.dumps(
         {
+            "stats_available": True,
             "cursor_template_count": cursor_tpl_n,
             "manifest_cursor_expected": manifest_cursor_expected,
             "codex_enabled_count": codex_en,
@@ -428,20 +437,24 @@ else
 fi
 
 if [[ -f "${CURSOR_MCP}" ]] && python3 -c "import json; d=json.load(open('${CURSOR_MCP}')); exit(0 if 'excalidraw_canvas' in d.get('mcpServers',{}) else 1)" 2>/dev/null; then
-	if command -v docker >/dev/null 2>&1; then
-		line OK "Docker CLI available for Excalidraw MCP"
-		if docker image inspect "${EXCALIDRAW_MCP_IMAGE}" >/dev/null 2>&1; then
+	if [[ -n "${EXCALIDRAW_DOCKER_CMD}" ]]; then
+		line OK "Docker CLI available for Excalidraw image operations"
+		line_info "Docker command: ${EXCALIDRAW_DOCKER_CMD}"
+		if [[ -n "${EXCALIDRAW_DOCKER_RESOLUTION_NOTE}" ]]; then
+			line_info "${EXCALIDRAW_DOCKER_RESOLUTION_NOTE}"
+		fi
+		if "${EXCALIDRAW_DOCKER_CMD}" image inspect "${EXCALIDRAW_MCP_IMAGE}" >/dev/null 2>&1; then
 			line OK "Excalidraw MCP Docker image present (${EXCALIDRAW_MCP_IMAGE})"
 		else
 			line WARN "Excalidraw MCP Docker image not present locally; run 'make excalidraw-update'"
 		fi
-		if docker image inspect "${EXCALIDRAW_CANVAS_IMAGE}" >/dev/null 2>&1; then
+		if "${EXCALIDRAW_DOCKER_CMD}" image inspect "${EXCALIDRAW_CANVAS_IMAGE}" >/dev/null 2>&1; then
 			line OK "Excalidraw canvas Docker image present (${EXCALIDRAW_CANVAS_IMAGE})"
 		else
 			line WARN "Excalidraw canvas Docker image not present locally; run 'make excalidraw-update'"
 		fi
 	else
-		line WARN "Docker CLI not available; Excalidraw MCP Docker runtime requires Docker Desktop"
+		line WARN "${EXCALIDRAW_DOCKER_RESOLUTION_ERROR:-No responsive Docker command found; open Docker Desktop or verify WSL integration.}"
 	fi
 fi
 
@@ -646,7 +659,8 @@ if [[ ! -f "${CURSOR_TMPL}" ]]; then
 	line FAIL "Cursor MCP template missing: ${CURSOR_TMPL}"
 fi
 
-stats_json="$(mcp_stats_py 2>/dev/null || echo '{}')"
+stats_json="$(mcp_stats_py 2>/dev/null || echo '{"stats_available": false}')"
+stats_available="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print('1' if d.get('stats_available') else '0')" 2>/dev/null || echo 0)"
 ct="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('cursor_template_count',0))" 2>/dev/null || echo 0)"
 ce="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('codex_enabled_count',0))" 2>/dev/null || echo 0)"
 oe="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('opencode_enabled_count',0))" 2>/dev/null || echo 0)"
@@ -654,10 +668,20 @@ hn="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys
 herr="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('cursor_home_error',''))" 2>/dev/null || echo "")"
 mf="$(printf '%s' "${stats_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('manifest_cursor_expected',-1))" 2>/dev/null || echo -1)"
 
-if [[ "${hn}" -ge 0 ]]; then
+if [[ "${stats_available}" != "1" ]]; then
+	if [[ -f "${CURSOR_MCP}" ]]; then
+		line_info "MCP surfaces: Cursor template=${ct} (manifest cursor enabled=${mf}), Cursor home=(present, stats unavailable), Codex enabled=${ce}, OpenCode enabled=${oe}"
+	else
+		line_info "MCP surfaces: Cursor template=${ct} (manifest cursor enabled=${mf}), Cursor home=(no ~/.cursor/mcp.json), Codex enabled=${ce}, OpenCode enabled=${oe}"
+	fi
+elif [[ "${hn}" -ge 0 ]]; then
 	line_info "MCP surfaces: Cursor template=${ct} (manifest cursor enabled=${mf}), Cursor home=${hn}, Codex enabled=${ce}, OpenCode enabled=${oe}"
 else
-	line_info "MCP surfaces: Cursor template=${ct} (manifest cursor enabled=${mf}), Cursor home=(no ~/.cursor/mcp.json), Codex enabled=${ce}, OpenCode enabled=${oe}"
+	if [[ -f "${CURSOR_MCP}" ]]; then
+		line_info "MCP surfaces: Cursor template=${ct} (manifest cursor enabled=${mf}), Cursor home=(present, stats unavailable), Codex enabled=${ce}, OpenCode enabled=${oe}"
+	else
+		line_info "MCP surfaces: Cursor template=${ct} (manifest cursor enabled=${mf}), Cursor home=(no ~/.cursor/mcp.json), Codex enabled=${ce}, OpenCode enabled=${oe}"
+	fi
 fi
 line_info "MCP manifest: ai/assets/mcps/MANIFEST.yaml — validate: make ai-mcp-validate; drift: make ai-mcp-drift; apply templates: make ai-mcp-generate APPLY=1"
 

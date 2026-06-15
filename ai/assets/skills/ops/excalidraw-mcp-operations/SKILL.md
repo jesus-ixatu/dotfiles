@@ -21,7 +21,7 @@ Use this skill when an agent needs to start, stop, update, diagnose, or configur
 - Docker maps host `3210` to the container's internal `3000` port (`3210:3000`)
 - The MCP container connects to the canvas through `EXPRESS_SERVER_URL=http://host.docker.internal:3210`
 - File access is scoped to `/workspace/excalidraw` inside the MCP container
-- The host bind mount is `/mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw:/workspace/excalidraw`
+- The host bind mount is resolved from `EXCALIDRAW_WORKSPACE_HOST`, Chezmoi `data.ai.excalidraw_workspace_host`, or `data.ai.obsidian_vault_path` plus `/excalidraw`, then mounted to `/workspace/excalidraw`
 - Host port `3000` is reserved for Store ETL/Dagster
 - `ENABLE_CANVAS_SYNC=true` is enabled in MCP configs
 - `EXCALIDRAW_EXPORT_DIR=/workspace/excalidraw` is required in MCP configs

@@ -15,6 +15,7 @@
 │   ├── 📄 run_after_15_link_tmux_dotfiles.sh.tmpl
 │   └── 📄 run_before_00_backup_rc_files.sh.tmpl
 ├── 📁 .cursor
+│   ├── 📁 plans
 │   └── 📁 rules
 │       └── 📄 aliases-conventions.mdc
 ├── 📁 .githooks
@@ -197,8 +198,7 @@
 │   └── 📝 SKILLS_ARCHITECTURE.md
 ├── 📁 codex
 │   ├── 📝 README-mcp.md
-│   ├── 📝 README.md
-│   └── ⚙️ config.toml
+│   └── 📝 README.md
 ├── 📁 docs
 │   ├── 📁 adr
 │   │   ├── 📝 0001-mcp-governance.md
@@ -229,6 +229,7 @@
 │   │   └── 📝 dotfiles-install.md
 │   ├── 📁 plans
 │   │   └── 📝 PLAN_000009.md
+│   ├── 📁 wiki
 │   ├── 📝 AGENT_FIRST_SUMMARY.md
 │   ├── 📝 AGENT_WORKFLOW.md
 │   ├── 📝 AGENT_WORKFLOW_LOOP.md
@@ -250,6 +251,7 @@
 │   ├── 📝 MCP_TAXONOMY.md
 │   ├── 📝 MIGRATION_MCP_CHEZMOI.md
 │   ├── 📝 MIGRATION_MCP_ITER3.md
+│   ├── 📝 OFFICE_SETUP_CHEATSHEET.md
 │   ├── 📝 OPENCODE.md
 │   ├── 📝 OPERATIONS.md
 │   ├── 📝 OPERATIONS_CHEATSHEET.md
@@ -268,6 +270,10 @@
 ├── 📁 dot_codex
 │   └── 📄 private_config.toml.tmpl
 ├── 📁 dot_config
+│   ├── 📁 codex
+│   │   └── 📁 prompts
+│   ├── 📁 cursor
+│   │   └── 📁 commands
 │   ├── 📁 mcp
 │   │   ├── 📁 servers
 │   │   │   └── 📄 .keep
@@ -313,7 +319,10 @@
 │   ├── 📝 branch_feature_7-adding-new-global-mcps.md
 │   ├── 📝 branch_feature_8-adding-tests.md
 │   ├── 📝 branch_feature_9-adding-commands-and-skills.md
+│   ├── 📝 branch_feature_fixing-laptop-ixatu-issues.md
+│   ├── 📝 branch_feature_refactors-by-composer.md
 │   ├── 📝 branch_feature_test-branch-changelog.md
+│   ├── 📝 branch_feature_updating-updates-on-powershell.md
 │   ├── 📝 v2025.12.07_1051.md
 │   ├── 📝 v2025.12.08_1037.md
 │   ├── 📝 v2025.12.12_2122.md
@@ -364,6 +373,8 @@
 │   │   ├── 🔧 post-commit-gitnexus.sh
 │   │   └── 🔧 pre-commit-treegen.sh
 │   ├── 📁 lib
+│   │   ├── 🔧 docker-command-common.sh
+│   │   ├── 🔧 excalidraw-workspace-common.sh
 │   │   ├── 🔧 git-ai-common.sh
 │   │   ├── 🔧 git-ai-cursor-path.sh
 │   │   ├── 🔧 git_flow_policy.sh
@@ -452,6 +463,7 @@
 │   ├── 🔧 install-zsh-stack.sh
 │   ├── 🔧 materialize-commands.sh
 │   ├── 🔧 mcp-launcher-contract-check.sh
+│   ├── 🔧 secrets-check.sh
 │   ├── 🔧 security-osv-scan.sh
 │   ├── 🔧 set-default-shell-zsh.sh
 │   ├── 🔧 shell-audit-check.sh
@@ -550,6 +562,7 @@
 │   │   │   ├── 📄 mcp-manifest.bats
 │   │   │   ├── 📄 mcp-render-drift.bats
 │   │   │   ├── 📄 playwright-docker.bats
+│   │   │   ├── 📄 secrets-check.bats
 │   │   │   ├── 📄 security-osv-scan.bats
 │   │   │   ├── 📄 shell-audit-check.bats
 │   │   │   ├── 📄 system-deps.bats
@@ -618,7 +631,6 @@
 ├── 🔨 install.mk
 ├── 📄 modelcontextprotocol-server-postgres-0.6.2.tgz
 ├── ⚙️ secrets.sops.yaml
-├── 📄 secrets.sops.yaml.old-age1mq3-unreadable
 ├── 📄 symlink_dot_aliases.tmpl
 ├── 📄 symlink_dot_codex_mcp
 ├── 📄 symlink_dot_p10k.zsh.tmpl

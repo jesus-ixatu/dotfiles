@@ -4,6 +4,7 @@ setup() {
 	load '../helpers/common'
 	DOTFILES_DIR="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
 	AI_CURSOR_CHECK="${DOTFILES_DIR}/scripts/ai-cursor-check.sh"
+	EXCALIDRAW_HELPER="${DOTFILES_DIR}/scripts/lib/excalidraw-workspace-common.sh"
 }
 
 @test "ai-cursor-check.sh exists and passes bash -n" {
@@ -64,6 +65,83 @@ setup() {
 	run env HOME="${fake_home}" PATH="${stub_path}" "${bash_abs}" "${AI_CURSOR_CHECK}"
 	rm -rf "${fake_home}" "${stub_path}"
 	[[ "${output}" == *"make install-node-stack"* ]]
+}
+
+@test "excalidraw workspace resolver prefers explicit environment override with spaces" {
+	run env EXCALIDRAW_WORKSPACE_HOST="/tmp/My Excalidraw Workspace" bash -c 'source "$1"; resolve_excalidraw_workspace_host' _ "${EXCALIDRAW_HELPER}"
+	[[ "${status}" -eq 0 ]]
+	[[ "${output}" == "/tmp/My Excalidraw Workspace" ]]
+}
+
+@test "excalidraw workspace resolver reads Chezmoi excalidraw_workspace_host with spaces" {
+	local cfg
+	cfg="$(mktemp)"
+	cat >"${cfg}" <<'TOML'
+[data.ai]
+excalidraw_workspace_host = "/tmp/Vault With Spaces/excalidraw"
+TOML
+	run env -u EXCALIDRAW_WORKSPACE_HOST CHEZMOI_CONFIG="${cfg}" bash -c 'source "$1"; resolve_excalidraw_workspace_host' _ "${EXCALIDRAW_HELPER}"
+	rm -f "${cfg}"
+	[[ "${status}" -eq 0 ]]
+	[[ "${output}" == "/tmp/Vault With Spaces/excalidraw" ]]
+}
+
+@test "excalidraw workspace resolver derives from Chezmoi obsidian_vault_path with spaces" {
+	local cfg
+	cfg="$(mktemp)"
+	cat >"${cfg}" <<'TOML'
+[data.ai]
+obsidian_vault_path = "/tmp/Vault With Spaces"
+TOML
+	run env -u EXCALIDRAW_WORKSPACE_HOST CHEZMOI_CONFIG="${cfg}" bash -c 'source "$1"; resolve_excalidraw_workspace_host' _ "${EXCALIDRAW_HELPER}"
+	rm -f "${cfg}"
+	[[ "${status}" -eq 0 ]]
+	[[ "${output}" == "/tmp/Vault With Spaces/excalidraw" ]]
+}
+
+@test "excalidraw workspace resolver falls back to legacy path last" {
+	local fake_home
+	fake_home="$(mktemp -d)"
+	run env -u EXCALIDRAW_WORKSPACE_HOST HOME="${fake_home}" bash -c 'source "$1"; resolve_excalidraw_workspace_host' _ "${EXCALIDRAW_HELPER}"
+	rm -rf "${fake_home}"
+	[[ "${status}" -eq 0 ]]
+	[[ "${output}" == "/mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw" ]]
+}
+
+@test "ai-cursor-check uses Chezmoi Excalidraw workspace instead of legacy path" {
+	local fake_home cfg workspace
+	fake_home="$(mktemp -d)"
+	cfg="$(mktemp)"
+	workspace="${fake_home}/Vault With Spaces/excalidraw"
+	mkdir -p "${fake_home}/.cursor" "${workspace}"
+	cat >"${cfg}" <<TOML
+[data.ai]
+excalidraw_workspace_host = "${workspace}"
+TOML
+	cat >"${fake_home}/.cursor/mcp.json" <<JSON
+{"mcpServers":{"excalidraw_canvas":{"command":"docker","args":["run","-i","--rm","-e","EXPRESS_SERVER_URL=http://host.docker.internal:3210","-e","ENABLE_CANVAS_SYNC=true","-e","EXCALIDRAW_EXPORT_DIR=/workspace/excalidraw","-v","${workspace}:/workspace/excalidraw","ghcr.io/yctimlin/mcp_excalidraw:latest"],"env":{}}}}
+JSON
+	run env HOME="${fake_home}" CHEZMOI_CONFIG="${cfg}" bash "${AI_CURSOR_CHECK}"
+	rm -rf "${fake_home}"
+	rm -f "${cfg}"
+	[[ "${status}" -eq 0 ]]
+	[[ "${output}" == *"Excalidraw workspace host path present (${workspace})"* ]]
+	[[ "${output}" != *"Excalidraw workspace host path missing (/mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw)"* ]]
+	[[ "${output}" != *"missing the scoped workspace bind mount /mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw:/workspace/excalidraw"* ]]
+}
+
+@test "ai-cursor-check does not report Cursor HOME missing when mcp.json exists but stats are unavailable" {
+	local fake_home
+	fake_home="$(mktemp -d)"
+	mkdir -p "${fake_home}/.cursor"
+	cat >"${fake_home}/.cursor/mcp.json" <<'JSON'
+{"mcpServers":{}}
+JSON
+	run env HOME="${fake_home}" bash "${AI_CURSOR_CHECK}"
+	rm -rf "${fake_home}"
+	[[ "${status}" -eq 0 ]]
+	[[ "${output}" == *'$HOME/.cursor/mcp.json present and valid JSON'* ]]
+	[[ "${output}" != *"Cursor home=(no ~/.cursor/mcp.json)"* ]]
 }
 
 @test "ai-cursor-check reports Docker Excalidraw and GitHub hints when both MCPs are present in mcp.json" {
@@ -266,4 +344,35 @@ SH
 	[[ "${status}" -eq 0 ]]
 	[[ "${output}" == *"Docker MCP Toolkit responds via docker.exe"* ]]
 	[[ "${output}" == *"Docker MCP Gateway available via docker.exe; no Docker MCP profile/server enabled yet"* ]]
+}
+
+@test "ai-cursor-check uses docker.exe fallback for Excalidraw image inspection" {
+	local fake_home stub_path
+	fake_home="$(mktemp -d)"
+	stub_path="$(mktemp -d)"
+	mkdir -p "${fake_home}/.cursor" /mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw
+	cat >"${fake_home}/.cursor/mcp.json" <<'JSON'
+{"mcpServers":{"excalidraw_canvas":{"command":"docker","args":["run","-i","--rm","-e","EXPRESS_SERVER_URL=http://host.docker.internal:3210","-e","ENABLE_CANVAS_SYNC=true","-e","EXCALIDRAW_EXPORT_DIR=/workspace/excalidraw","-v","/mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw:/workspace/excalidraw","ghcr.io/yctimlin/mcp_excalidraw:latest"],"env":{}}}}
+JSON
+	cat >"${stub_path}/docker" <<'SH'
+#!/usr/bin/env bash
+exit 1
+SH
+	cat >"${stub_path}/docker.exe" <<'SH'
+#!/usr/bin/env bash
+case "$1 $2" in
+  "info ") exit 0 ;;
+  "image inspect") exit 0 ;;
+  *) exit 0 ;;
+esac
+SH
+	chmod +x "${stub_path}/docker" "${stub_path}/docker.exe"
+	run env HOME="${fake_home}" PATH="${stub_path}:${PATH}" bash "${AI_CURSOR_CHECK}"
+	rm -rf "${fake_home}" "${stub_path}"
+	[[ "${status}" -eq 0 ]]
+	[[ "${output}" == *"Docker CLI available for Excalidraw image operations"* ]]
+	[[ "${output}" == *"Docker command: docker.exe"* ]]
+	[[ "${output}" == *"docker exists but does not respond; using docker.exe"* ]]
+	[[ "${output}" == *"Excalidraw MCP Docker image present"* ]]
+	[[ "${output}" == *"Excalidraw canvas Docker image present"* ]]
 }

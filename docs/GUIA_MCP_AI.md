@@ -206,7 +206,7 @@ Tras ejecutar `make update`, aplica los cambios del shell con: `source ~/.zshrc`
 | Sidecar interoperable para agentes | `.excalidraw` |
 | Salida documental preferida | `.svg` |
 
-El MCP `excalidraw_canvas` monta solo `/mnt/c/Users/jesus/Documents/vault_trabajo/excalidraw` dentro del contenedor como `/workspace/excalidraw` y publica `EXCALIDRAW_EXPORT_DIR=/workspace/excalidraw`.
+El MCP `excalidraw_canvas` monta solo la ruta resuelta por Chezmoi (`data.ai.excalidraw_workspace_host`, o `data.ai.obsidian_vault_path` + `/excalidraw`) dentro del contenedor como `/workspace/excalidraw` y publica `EXCALIDRAW_EXPORT_DIR=/workspace/excalidraw`.
 
 No llames `import_scene`, `export_scene` ni `export_to_image` con rutas WSL `/mnt/c/...`. Usa rutas internas del contenedor, por ejemplo:
 
